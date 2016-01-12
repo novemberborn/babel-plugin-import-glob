@@ -1,2 +1,6 @@
 .node-version
+.nyc_output
 node_modules
+
+/index.js
+/index.js.map
