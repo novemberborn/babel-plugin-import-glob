@@ -4,7 +4,7 @@
   "description": "Babel plugin to enable importing modules using a glob pattern",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "standard"
   },
   "repository": {
     "type": "git",
@@ -18,5 +18,8 @@
   "homepage": "https://github.com/novemberborn/babel-plugin-import-glob#readme",
   "keywords": [
     "babel-plugin"
-  ]
+  ],
+  "devDependencies": {
+    "standard": "^5.4.1"
+  }
 }
