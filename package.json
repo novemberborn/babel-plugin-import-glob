@@ -1,6 +1,6 @@
 {
   "name": "babel-plugin-import-glob",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Babel plugin to enable importing modules using a glob pattern",
   "main": "index.js",
   "files": [
