@@ -45,5 +45,9 @@
     "common-path-prefix": "^1.0.0",
     "glob": "^7.0.0",
     "identifierfy": "^1.1.0"
+  },
+  "babel": {
+    "presets": ["es2015"],
+    "plugins": ["transform-runtime"]
   }
 }
