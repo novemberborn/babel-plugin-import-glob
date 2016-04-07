@@ -11,7 +11,7 @@ function transform (code) {
 }
 
 function attempt (code) {
-  return new Promise(ok => ok(transform(code)))
+  return new Promise(resolve => resolve(transform(code)))
 }
 
 function check (msg) {
@@ -71,7 +71,7 @@ import bar from './fixtures/multiple/bar.txt';`)
 test('constructs the member by identifierfying the file name, without the common extname', t => {
   t.is(
     transform("import { fooBar } from 'glob:fixtures/foo-bar/*.txt'"),
-    `import fooBar from './fixtures/foo-bar/foo-bar.txt';`)
+    "import fooBar from './fixtures/foo-bar/foo-bar.txt';")
 })
 
 test('constructs the member by identifierfying the file name, including remaining extnames', t => {
@@ -103,7 +103,7 @@ import _42 from './fixtures/necessary-underscores/42.txt';`)
 test('normalizes the source path irrespective of pattern', t => {
   t.is(
     transform("import { fooBar } from 'glob:../test/fixtures/foo-bar/*.txt'"),
-    `import fooBar from './fixtures/foo-bar/foo-bar.txt';`)
+    "import fooBar from './fixtures/foo-bar/foo-bar.txt';")
 })
 
 test('supports importing directories', t => {
@@ -116,7 +116,7 @@ import fooBar from './fixtures/foo-bar';`)
 test('supports aliasing members', t => {
   t.is(
     transform("import { fooBar as fb } from 'glob:fixtures/foo-bar/*.txt'"),
-    `import fb from './fixtures/foo-bar/foo-bar.txt';`)
+    "import fb from './fixtures/foo-bar/foo-bar.txt';")
 })
 
 test('supports importing the entire glob pattern as a namespace object', t => {
