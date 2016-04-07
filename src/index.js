@@ -78,16 +78,16 @@ export default function ({ types: t }) {
         }
 
         if (specifiers.length === 0) {
-          path.replaceWithMultiple(members.map((member) => t.importDeclaration([], t.stringLiteral(lookup[member]))))
+          path.replaceWithMultiple(members.map(member => t.importDeclaration([], t.stringLiteral(lookup[member]))))
           return
         }
 
         const makeImport = (localName, src) => t.importDeclaration([t.importDefaultSpecifier(t.identifier(localName))], t.stringLiteral(src))
         const makeNamespaceObject = (localName, members) => {
-          const properties = members.map((member) => t.objectProperty(t.identifier(member), t.identifier(`_${localName}_${member}`)))
+          const properties = members.map(member => t.objectProperty(t.identifier(member), t.identifier(`_${localName}_${member}`)))
           return t.variableDeclaration('const', [t.variableDeclarator(t.identifier(localName), t.objectExpression(properties))])
         }
-        const freezeNamespaceObject = (localName) => {
+        const freezeNamespaceObject = localName => {
           return t.expressionStatement(
             t.callExpression(
               t.memberExpression(t.identifier('Object'), t.identifier('freeze')),
@@ -107,7 +107,7 @@ export default function ({ types: t }) {
           // Only ImportNamespaceSpecifier can be remaining, since
           // importDefaultSpecifier has previously been rejected.
           return [].concat(
-            members.map((member) => makeImport(`_${localName}_${member}`, lookup[member])),
+            members.map(member => makeImport(`_${localName}_${member}`, lookup[member])),
             makeNamespaceObject(localName, members),
             freezeNamespaceObject(localName)
           )
