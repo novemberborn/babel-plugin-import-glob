@@ -31,7 +31,7 @@
   ],
   "devDependencies": {
     "@novemberborn/as-i-preach": "^2.0.1",
-    "ava": "^0.14.0",
+    "ava": "^0.15.0",
     "babel-cli": "^6.4.0",
     "babel-core": "^6.4.0",
     "babel-plugin-transform-runtime": "^6.4.0",
@@ -47,7 +47,11 @@
     "identifierfy": "^1.1.0"
   },
   "babel": {
-    "presets": ["es2015"],
-    "plugins": ["transform-runtime"]
+    "presets": [
+      "es2015"
+    ],
+    "plugins": [
+      "transform-runtime"
+    ]
   }
 }
