@@ -2,15 +2,14 @@
   "name": "babel-plugin-import-glob",
   "version": "1.0.1",
   "description": "Babel plugin to enable importing modules using a glob pattern",
-  "main": "index.js",
+  "main": "dist/index.js",
   "files": [
-    "index.js",
-    "index.js.map"
+    "dist"
   ],
   "scripts": {
-    "clean": "rimraf index.js index.js.map",
+    "clean": "rimraf dist",
     "prebuild": "npm run clean",
-    "build": "babel src --out-dir ./ --source-maps",
+    "build": "babel src --out-dir dist --source-maps",
     "prepublish": "npm run build",
     "coverage": "nyc npm test",
     "test": "ava",
