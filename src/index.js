@@ -83,7 +83,7 @@ export default function ({ types: t }) {
         }
 
         const makeImport = (localName, src) => t.importDeclaration([t.importDefaultSpecifier(t.identifier(localName))], t.stringLiteral(src))
-        const makeNamespaceObject = (localName, members) => {
+        const makeNamespaceObject = localName => {
           const properties = members.map(member => t.objectProperty(t.identifier(member), t.identifier(`_${localName}_${member}`)))
           return t.variableDeclaration('const', [t.variableDeclarator(t.identifier(localName), t.objectExpression(properties))])
         }
