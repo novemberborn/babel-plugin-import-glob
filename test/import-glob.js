@@ -1,12 +1,13 @@
+import { resolve as resolvePath } from 'path'
 import test from 'ava'
 import { transform as babelTransform } from 'babel-core'
 
 function transform (code) {
   return babelTransform(code, {
     babelrc: false,
-    filename: 'import-glob.js',
+    filename: __filename,
     sourceRoot: __dirname,
-    plugins: ['../']
+    plugins: [resolvePath(__dirname, '..')]
   }).code
 }
 
@@ -15,7 +16,7 @@ function attempt (code) {
 }
 
 function check (msg) {
-  const preface = 'import-glob.js: '
+  const preface = `${__filename}: `
   return err => err instanceof SyntaxError && err.message.slice(0, preface.length) === preface && err.message.slice(preface.length) === msg
 }
 
