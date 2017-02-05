@@ -55,6 +55,12 @@
       "transform-runtime"
     ]
   },
+  "greenkeeper": {
+    "ignore": [
+      "@novemberborn/as-i-preach",
+      "ava"
+    ]
+  },
   "nyc": {
     "instrument": false,
     "reporter": [
