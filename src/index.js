@@ -34,7 +34,11 @@ export default function ({ types: t }) {
     visitor: {
       ImportDeclaration (path, file) {
         const { node: { specifiers, source } } = path
-        if (!t.isStringLiteral(source) || !/^glob:/.test(source.value)) {
+        if (!t.isStringLiteral(source)) {
+          return
+        }
+
+        if (!/^glob:/.test(source.value) && !glob.hasMagic(source.value)) {
           return
         }
 
