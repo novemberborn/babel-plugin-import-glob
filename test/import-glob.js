@@ -69,6 +69,19 @@ test('rewrites the import statement', t => {
 import bar from './fixtures/multiple/bar.txt';`)
 })
 
+test('does not require glob prefix', t => {
+  t.is(
+    transform("import { foo, bar } from 'fixtures/multiple/*.txt'"),
+    `import foo from './fixtures/multiple/foo.txt';
+import bar from './fixtures/multiple/bar.txt';`)
+})
+
+test('does not transform standard import', t => {
+  t.is(
+    transform("import foo from 'fixtures/multiple/foo.txt'"),
+    `import foo from 'fixtures/multiple/foo.txt';`)
+})
+
 test('constructs the member by identifierfying the file name, without the common extname', t => {
   t.is(
     transform("import { fooBar } from 'glob:fixtures/foo-bar/*.txt'"),

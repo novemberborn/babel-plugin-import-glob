@@ -44,19 +44,25 @@ have a directory layout like this:
 In `index.js` you can write:
 
 ```js
+import { main, _partial } from 'templates/*.handlebars.js'
+```
+
+You can add an optional `glob:` prefix:
+
+```js
 import { main, _partial } from 'glob:templates/*.handlebars.js'
 ```
 
 You can alias members:
 
 ```js
-import { main, _partial as partial } from 'glob:templates/*.handlebars.js'
+import { main, _partial as partial } from 'templates/*.handlebars.js'
 ```
 
 Or import all matches into a namespace object:
 
 ```js
-import * as templates from 'glob:templates/*.handlebars.js'
+import * as templates from 'templates/*.handlebars.js'
 // Provides `templates.main` and `templates._partial`
 ```
 
@@ -64,13 +70,13 @@ Note that you **cannot import the default** from the glob pattern. The following
 **won't work** and throws a `SyntaxError`:
 
 ```js
-import myTemplates from 'glob:templates/*.handlebars.js' // This will throw a SyntaxError
+import myTemplates from 'templates/*.handlebars.js' // This will throw a SyntaxError
 ```
 
 You can load modules for their side-effects though:
 
 ```js
-import 'glob:modules-with-side-effects/*.js'
+import 'modules-with-side-effects/*.js'
 ```
 
 ### Glob patterns
@@ -110,7 +116,7 @@ A `SyntaxError` is throw when importing a member that does not correspond to a
 match:
 
 ```js
-import { doesNotExist } from 'glob:templates/*.handlebars.js' // This will throw a SyntaxError
+import { doesNotExist } from 'templates/*.handlebars.js' // This will throw a SyntaxError
 ```
 
 Here's an overview of how the members are determined for additional matches.
