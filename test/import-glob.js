@@ -49,7 +49,7 @@ test('throws if members collide', async t => {
 })
 
 test('throws if imports cannot be mapped', async t => {
-   await t.throws(
+  await t.throws(
     attempt("import { baz } from 'glob:fixtures/foo-bar/*.txt'"),
     check("Could not match import 'baz' to a module. Available members are 'fooBar'"))
 })

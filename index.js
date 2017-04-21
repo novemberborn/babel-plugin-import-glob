@@ -1,16 +1,17 @@
 'use strict'
 
 const nodePath = require('path')
-const dirname = nodePath.dirname;
-const relative = nodePath.relative;
-const resolve = nodePath.resolve;
-const fileSeparator = nodePath.sep;
 const GlobSync = require('glob/sync').GlobSync
 const GLOBSTAR = require('minimatch').GLOBSTAR
 const hasMagic = require('glob').hasMagic
 const commonExtname = require('common-extname')
 const commonPathPrefix = require('common-path-prefix')
 const identifierfy = require('identifierfy')
+
+const dirname = nodePath.dirname
+const relative = nodePath.relative
+const resolve = nodePath.resolve
+const fileSeparator = nodePath.sep
 
 const star = '[^/]*?'
 const twoStarDot = '(?:(?!(?:/|^)(?:\\.{1,2})($|/)).)*?'
@@ -148,7 +149,7 @@ module.exports = babelCore => {
         const error = message => path.buildCodeFrameError(message)
 
         let pattern = source.value
-        if (/^glob:/.test(pattern)) {
+        if (pattern.startsWith('glob:')) {
           pattern = pattern.replace(/^glob:/, '')
         } else if (!hasMagic(pattern)) {
           return
