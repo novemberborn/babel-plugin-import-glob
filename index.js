@@ -34,10 +34,6 @@ module.exports = babelCore => {
     visitor: {
       ImportDeclaration (path, file) {
         const node = path.node
-        if (!t.isStringLiteral(node.source)) {
-          return
-        }
-
         if (!node.source.value.startsWith('glob:') && !glob.hasMagic(node.source.value)) {
           return
         }
