@@ -27,7 +27,7 @@ function check (msg) {
 test('throws if import does not contain a pattern', async t => {
   await t.throws(
     attempt("import { foo } from 'glob:'"),
-    check("Missing glob pattern 'glob:'"))
+    check("Missing glob pattern ''"))
 })
 
 test('throws if pattern is absolute', async t => {
@@ -36,11 +36,16 @@ test('throws if pattern is absolute', async t => {
     check("Glob pattern must be relative, was '/root'"))
 })
 
+test('throws if no glob: prefix and does not start with .', async t => {
+  await t.throws(
+    attempt("import { foo } from 'folder/*'"),
+    check("Glob pattern must be relative, was 'folder/*'"))
+})
+
 test('throws if a member identifier cannot be generated', async t => {
   await t.throws(
     attempt("import * as members from 'glob:fixtures/cannot-generate-identifier/*.txt'"),
-    // eslint-disable-next-line max-len
-    check("Could not generate a valid identifier for './fixtures/cannot-generate-identifier/-.txt'. The '-' component could not be converted."))
+    check("Could not generate a valid identifier for 'fixtures/cannot-generate-identifier/-.txt'"))
 })
 
 test('throws if members collide', async t => {
@@ -76,7 +81,7 @@ import bar from './fixtures/multiple/bar.txt';`)
 
 test('does not require glob prefix', t => {
   t.is(
-    transform("import { foo, bar } from 'fixtures/multiple/*.txt'"),
+    transform("import { foo, bar } from './fixtures/multiple/*.txt'"),
     `import foo from './fixtures/multiple/foo.txt';
 import bar from './fixtures/multiple/bar.txt';`)
 })
@@ -156,4 +161,74 @@ test('supports importing modules for their side-effects', t => {
     transform("import 'glob:fixtures/multiple/*.txt'"),
     `import './fixtures/multiple/bar.txt';
 import './fixtures/multiple/foo.txt';`)
+})
+
+test('throw error if you mix index with a second member', async t => {
+  await t.throws(
+    attempt("import {$0 as foos, foo} from './fixtures/pattern-position/*/foo.txt'"),
+    check('Cannot mix indexed members'))
+})
+
+test('throw error when match index does not exist', async t => {
+  await t.throws(
+    attempt("import {$1 as foos} from './fixtures/pattern-position/*/foo.txt'"),
+    check("Could not generate a valid identifier for './fixtures/pattern-position/one/foo.txt'"))
+})
+
+test('throw error when match index does not exist with glob star', async t => {
+  await t.throws(
+    attempt("import {$1 as foos} from './fixtures/pattern-position/**/foo.txt'"),
+    check("Could not generate a valid identifier for './fixtures/pattern-position/one/foo.txt'"))
+})
+
+test('use first match as member', t => {
+  t.is(
+    transform("import {$0 as foos} from './fixtures/pattern-position/*/foo.txt'"),
+    `import _foos_one from './fixtures/pattern-position/one/foo.txt';
+import _foos_two from './fixtures/pattern-position/two/foo.txt';
+const foos = {
+  one: _foos_one,
+  two: _foos_two
+};
+Object.freeze(foos);`)
+})
+
+test('use first match as member with glob star', t => {
+  t.is(
+    transform("import {$0 as foos} from './fixtures/pattern-position/**/foo.txt'"),
+    `import _foos_one from './fixtures/pattern-position/one/foo.txt';
+import _foos_one$seven from './fixtures/pattern-position/one/seven/foo.txt';
+import _foos_two from './fixtures/pattern-position/two/foo.txt';
+const foos = {
+  one: _foos_one,
+  one$seven: _foos_one$seven,
+  two: _foos_two
+};
+Object.freeze(foos);`)
+})
+
+test('use second match as member', t => {
+  t.is(
+    transform("import {$1 as foos} from './fixtures/pattern-position/*/*.foo.txt'"),
+    `import _foos_three from './fixtures/pattern-position/one/three.foo.txt';
+import _foos_four from './fixtures/pattern-position/two/four.foo.txt';
+const foos = {
+  three: _foos_three,
+  four: _foos_four
+};
+Object.freeze(foos);`)
+})
+
+test('use second match as member with glob star', t => {
+  t.is(
+    transform("import {$1 as foos} from './fixtures/pattern-position/**/*.foo.txt'"),
+    `import _foos_three from './fixtures/pattern-position/one/three.foo.txt';
+import _foos_six from './fixtures/pattern-position/two/five/six.foo.txt';
+import _foos_four from './fixtures/pattern-position/two/four.foo.txt';
+const foos = {
+  three: _foos_three,
+  six: _foos_six,
+  four: _foos_four
+};
+Object.freeze(foos);`)
 })
