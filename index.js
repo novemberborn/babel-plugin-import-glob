@@ -1,22 +1,25 @@
-import {
-  dirname,
-  relative,
-  resolve,
-  sep as fileSeparator
-} from 'path'
+'use strict'
 
-import {GlobSync} from 'glob/sync'
-import {GLOBSTAR} from 'minimatch'
-import {hasMagic} from 'glob'
-import commonExtname from 'common-extname'
-import commonPathPrefix from 'common-path-prefix'
-import identifierfy from 'identifierfy'
+const nodePath = require('path')
+const dirname = nodePath.dirname;
+const relative = nodePath.relative;
+const resolve = nodePath.resolve;
+const fileSeparator = nodePath.sep;
+const GlobSync = require('glob/sync').GlobSync
+const GLOBSTAR = require('minimatch').GLOBSTAR
+const hasMagic = require('glob').hasMagic
+const commonExtname = require('common-extname')
+const commonPathPrefix = require('common-path-prefix')
+const identifierfy = require('identifierfy')
 
 const star = '[^/]*?'
 const twoStarDot = '(?:(?!(?:/|^)(?:\\.{1,2})($|/)).)*?'
 const twoStarNoDot = '(?:(?!(?:/|^)\\.).)*?'
 
-function generateMembers ({found, minimatch: {set, options}}, cwd, index) {
+function generateMembers (gm, cwd, index) {
+  const found = gm.found
+  const set = gm.minimatch.set
+  const options = gm.minimatch.options
   let members
   const rp = file => './' + relative(cwd, resolve(cwd, file))
   if (index >= 0) {
@@ -88,8 +91,8 @@ function memberify (subpath) {
 }
 
 function hasImportDefaultSpecifier (specifiers) {
-  for (const { type } of specifiers) {
-    if (type === 'ImportDefaultSpecifier') {
+  for (const s of specifiers) {
+    if (s.type === 'ImportDefaultSpecifier') {
       return true
     }
   }
@@ -97,8 +100,8 @@ function hasImportDefaultSpecifier (specifiers) {
 }
 
 function indexFromImportSpecifier (specifiers) {
-  const specifier = specifiers.find(({ type, imported }) =>
-    type === 'ImportSpecifier' && /^\$[0-9]+$/.test(imported.name)
+  const specifier = specifiers.find(s =>
+    s.type === 'ImportSpecifier' && /^\$[0-9]+$/.test(s.imported.name)
   )
   if (!specifier) {
     return -1
@@ -135,16 +138,14 @@ function makeNamespaceObject (t, localName, members) {
   )
 }
 
-export default function ({ types: t }) {
+module.exports = babelCore => {
+  const t = babelCore.types
   return {
     visitor: {
       ImportDeclaration (path, state) {
-        const { node: { specifiers, source } } = path
+        const specifiers = path.node.specifiers
+        const source = path.node.source
         const error = message => path.buildCodeFrameError(message)
-
-        if (!t.isStringLiteral(source)) {
-          return
-        }
 
         let pattern = source.value
         if (/^glob:/.test(pattern)) {
@@ -161,7 +162,7 @@ export default function ({ types: t }) {
           throw error(`Missing glob pattern '${pattern}'`)
         }
 
-        if (/^\//.test(pattern)) {
+        if (pattern.startsWith('/')) {
           throw error(`Glob pattern must be relative, was '${pattern}'`)
         }
 
@@ -174,46 +175,53 @@ export default function ({ types: t }) {
         const gm = GlobSync(pattern, {cwd, strict: true})
         const members = generateMembers(gm, cwd, index)
         const unique = Object.create(null)
-        members.forEach(({file, name}) => {
-          if (name === null) {
-            throw error(`Could not generate a valid identifier for '${file}'`)
+        members.forEach(m => {
+          if (m.name === null) {
+            throw error(`Could not generate a valid identifier for '${m.file}'`)
           }
-          if (unique[name]) {
+          if (unique[m.name]) {
             // hyphen conversion means foo-bar and fooBar will collide.
-            throw error(`Found colliding members '${name}'`)
+            throw error(`Found colliding members '${m.name}'`)
           }
-          unique[name] = true
+          unique[m.name] = true
         })
 
-        if (specifiers.length === 0) {
-          path.replaceWithMultiple(members.map(
-            m => t.importDeclaration(
-              [], t.stringLiteral(m.relative))
-            )
-          )
-          return
-        }
-
-        const replacement = specifiers.map(({ type, imported, local: { name: localName } }) => {
+        const replacement = []
+        specifiers.forEach(s => {
+          const type = s.type
+          const localName = s.local.name
           if (index < 0 && type === 'ImportSpecifier') {
-            const { name: importName } = imported
+            const importName = s.imported.name
             const member = members.find(m => m.name === importName)
             if (!member) {
               const names = members.map(m => m.name).join("', '")
               throw error(`Could not match import '${importName}' to a module. Available members are '${names}'`)
             }
-            return makeImport(t, localName, member.relative)
+            replacement.push(makeImport(t, localName, member.relative))
+          } else {
+            // Only ImportNamespaceSpecifier can be remaining, since
+            // importDefaultSpecifier has previously been rejected.
+            members.forEach(
+              m => replacement.push(
+                  makeImport(t, `_${localName}_${m.name}`, m.relative)
+              )
+            )
+            replacement.push(
+              makeNamespaceObject(t, localName, members),
+              freezeNamespaceObject(t, localName)
+            )
           }
-
-          // Only ImportNamespaceSpecifier can be remaining, since
-          // importDefaultSpecifier has previously been rejected.
-          return [].concat(
-            members.map(m => makeImport(t, `_${localName}_${m.name}`, m.relative)),
-            makeNamespaceObject(t, localName, members),
-            freezeNamespaceObject(t, localName)
-          )
         })
-        path.replaceWithMultiple([].concat(...replacement))
+
+        if (replacement.length === 0) {
+          members.forEach(
+            m => replacement.push(
+                t.importDeclaration([], t.stringLiteral(m.relative))
+            )
+          )
+        }
+
+        path.replaceWithMultiple(replacement)
       }
     }
   }

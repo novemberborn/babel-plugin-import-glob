@@ -17,47 +17,51 @@ function attempt (code) {
 
 function check (msg) {
   const preface = `${__filename}: `
-  return err => err instanceof SyntaxError && err.message.slice(0, preface.length) === preface && err.message.slice(preface.length) === msg
+  return err => {
+    return err instanceof SyntaxError &&
+      err.message.slice(0, preface.length) === preface &&
+      err.message.slice(preface.length) === msg
+  }
 }
 
-test('throws if import does not contain a pattern', t => {
-  t.throws(
+test('throws if import does not contain a pattern', async t => {
+  await t.throws(
     attempt("import { foo } from 'glob:'"),
     check("Missing glob pattern ''"))
 })
 
-test('throws if pattern is absolute', t => {
-  t.throws(
+test('throws if pattern is absolute', async t => {
+  await t.throws(
     attempt("import { foo } from 'glob:/root'"),
     check("Glob pattern must be relative, was '/root'"))
 })
 
-test('throws if a member identifier cannot be generated', t => {
-  t.throws(
+test('throws if a member identifier cannot be generated', async t => {
+  await t.throws(
     attempt("import * as members from 'glob:fixtures/cannot-generate-identifier/*.txt'"),
     check("Could not generate a valid identifier for 'fixtures/cannot-generate-identifier/-.txt'"))
 })
 
-test('throws if members collide', t => {
-  t.throws(
+test('throws if members collide', async t => {
+  await t.throws(
     attempt("import { fooBar } from 'glob:fixtures/member-collision/*.txt'"),
     check("Found colliding members 'fooBar'"))
 })
 
-test('throws if imports cannot be mapped', t => {
-  t.throws(
+test('throws if imports cannot be mapped', async t => {
+   await t.throws(
     attempt("import { baz } from 'glob:fixtures/foo-bar/*.txt'"),
     check("Could not match import 'baz' to a module. Available members are 'fooBar'"))
 })
 
-test("cannot map 'toString'", t => {
-  t.throws(
+test("cannot map 'toString'", async t => {
+  await t.throws(
     attempt("import { toString } from 'glob:fixtures/foo-bar/*.txt'"),
     SyntaxError)
 })
 
-test('throws when importing the default member', t => {
-  t.throws(
+test('throws when importing the default member', async t => {
+  await t.throws(
     attempt("import fooBar from 'glob:fixtures/foo-bar/*.txt'"),
     check('Cannot import the default member'))
 })
@@ -104,6 +108,7 @@ import qux$quux from './fixtures/subdirectories/qux/quux.txt';`)
 
 test('constructs the member by identifierfying directory components, without unnecessary underscores', t => {
   t.is(
+    // eslint-disable-next-line max-len
     transform("import { noUnnecessaryUnderscores$new, noUnnecessaryUnderscores$42 } from 'glob:fixtures/subdirectories/**/*.txt'"),
     `import noUnnecessaryUnderscores$new from './fixtures/subdirectories/no-unnecessary-underscores/new.txt';
 import noUnnecessaryUnderscores$42 from './fixtures/subdirectories/no-unnecessary-underscores/42.txt';`)
@@ -152,8 +157,8 @@ test('supports importing modules for their side-effects', t => {
 import './fixtures/multiple/foo.txt';`)
 })
 
-test('throw error if you mix index with a second member', t => {
-  t.throws(
+test('throw error if you mix index with a second member', async t => {
+  await t.throws(
     attempt("import {$0 as foos, foo} from 'fixtures/pattern-position/*/foo.txt'"),
     check('Cannot mix indexed members'))
 })
