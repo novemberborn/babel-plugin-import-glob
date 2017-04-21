@@ -12,33 +12,23 @@ const dirname = nodePath.dirname
 const relative = nodePath.relative
 const resolve = nodePath.resolve
 const fileSeparator = nodePath.sep
-
-const star = '[^/]*?'
-const twoStarDot = '(?:(?!(?:/|^)(?:\\.{1,2})($|/)).)*?'
-const twoStarNoDot = '(?:(?!(?:/|^)\\.).)*?'
+const twoStar = '((?:(?!(?:/|^)\\.).)*?)'
 
 function generateMembers (gm, cwd, index) {
+  let members
   const found = gm.found
   const set = gm.minimatch.set
-  const options = gm.minimatch.options
-  let members
   const rp = file => './' + relative(cwd, resolve(cwd, file))
   if (index >= 0) {
-    const twoStar = '(' + (options.noglobstar ? star
-      : options.dot ? twoStarDot
-      : twoStarNoDot) + ')'
-    const flags = options.nocase ? 'i' : ''
     const ps = set[0]
     const regexp = new RegExp(
       '^(?:' + ps.map(p => (p === GLOBSTAR) ? twoStar
         : (typeof p === 'string') ? regExpEscape(p)
-        : '(' + p._src + ')').join('/') + ')$', flags
+        : '(' + p._src + ')').join('/') + ')$',
+      'i' // glob already did matching, so assume i
     )
     const count = ps.reduce((c, p) => typeof p !== 'string' ? c + 1 : c, 0)
     const last = count - 1
-    if (index > last) {
-      index = last
-    }
     const fileIndex = typeof ps[ps.length - 1] !== 'string' && last
     if (index === fileIndex) {
       const suffix = commonExtname(found).length
@@ -51,11 +41,14 @@ function generateMembers (gm, cwd, index) {
         }
       })
     } else {
-      members = found.map(f => ({
-        file: f,
-        relative: rp(f),
-        name: memberify(f.match(regexp)[index + 1])
-      }))
+      members = found.map(f => {
+        const p = f.match(regexp)[index + 1]
+        return {
+          file: f,
+          relative: rp(f),
+          name: p ? memberify(p) : null
+        }
+      })
     }
   } else {
     const prefix = commonPathPrefix(found).length

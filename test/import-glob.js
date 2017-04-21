@@ -169,6 +169,18 @@ test('throw error if you mix index with a second member', async t => {
     check('Cannot mix indexed members'))
 })
 
+test('throw error when match index does not exist', async t => {
+  await t.throws(
+    attempt("import {$1 as foos} from './fixtures/pattern-position/*/foo.txt'"),
+    check("Could not generate a valid identifier for './fixtures/pattern-position/one/foo.txt'"))
+})
+
+test('throw error when match index does not exist with glob star', async t => {
+  await t.throws(
+    attempt("import {$1 as foos} from './fixtures/pattern-position/**/foo.txt'"),
+    check("Could not generate a valid identifier for './fixtures/pattern-position/one/foo.txt'"))
+})
+
 test('use first match as member', t => {
   t.is(
     transform("import {$0 as foos} from './fixtures/pattern-position/*/foo.txt'"),
@@ -181,14 +193,42 @@ const foos = {
 Object.freeze(foos);`)
 })
 
-test('use second match as member and ', t => {
+test('use first match as member with glob star', t => {
+  t.is(
+    transform("import {$0 as foos} from './fixtures/pattern-position/**/foo.txt'"),
+    `import _foos_one from './fixtures/pattern-position/one/foo.txt';
+import _foos_one$seven from './fixtures/pattern-position/one/seven/foo.txt';
+import _foos_two from './fixtures/pattern-position/two/foo.txt';
+const foos = {
+  one: _foos_one,
+  one$seven: _foos_one$seven,
+  two: _foos_two
+};
+Object.freeze(foos);`)
+})
+
+test('use second match as member', t => {
   t.is(
     transform("import {$1 as foos} from './fixtures/pattern-position/*/*.foo.txt'"),
-    `import _foos_two from './fixtures/pattern-position/one/two.foo.txt';
-import _foos_three from './fixtures/pattern-position/two/three.foo.txt';
+    `import _foos_three from './fixtures/pattern-position/one/three.foo.txt';
+import _foos_four from './fixtures/pattern-position/two/four.foo.txt';
 const foos = {
-  two: _foos_two,
-  three: _foos_three
+  three: _foos_three,
+  four: _foos_four
+};
+Object.freeze(foos);`)
+})
+
+test('use second match as member with glob star', t => {
+  t.is(
+    transform("import {$1 as foos} from './fixtures/pattern-position/**/*.foo.txt'"),
+    `import _foos_three from './fixtures/pattern-position/one/three.foo.txt';
+import _foos_six from './fixtures/pattern-position/two/five/six.foo.txt';
+import _foos_four from './fixtures/pattern-position/two/four.foo.txt';
+const foos = {
+  three: _foos_three,
+  six: _foos_six,
+  four: _foos_four
 };
 Object.freeze(foos);`)
 })
