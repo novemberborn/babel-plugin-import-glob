@@ -2,7 +2,7 @@
 
 Babel plugin to enable importing modules using a [glob
 pattern](https://www.npmjs.com/package/glob#glob-primer). Tested with Node.js
-0.10 and above.
+4 and above.
 
 ## Installation
 
