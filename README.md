@@ -109,9 +109,8 @@ import { $0 as sections, section1 } from './*/main.js'
 The plugin uses the `glob` package. Please refer to [its documentation regarding
 the pattern syntax](https://www.npmjs.com/package/glob#glob-primer).
 
-The glob pattern must be relative. It may start with `./` or `../`. If you don't
-specify either then `./` is assumed. A `SyntaxError` is thrown if you start the
-pattern with `/`.
+The glob pattern must be relative. It may start with `./` or `../`. If `glob:` prefix is included and you don't
+specify either then `./` is assumed. A `SyntaxError` is thrown otherwise.
 
 The pattern is resolved relative to the file containing the `import` statement.
 
