@@ -1,51 +1,51 @@
-import {
-  dirname,
-  relative,
-  resolve,
-  sep as fileSeparator
-} from 'path'
+'use strict'
 
-import commonExtname from 'common-extname'
-import commonPathPrefix from 'common-path-prefix'
-import glob from 'glob'
-import identifierfy from 'identifierfy'
+const nodePath = require('path')
+
+const commonExtname = require('common-extname')
+const commonPathPrefix = require('common-path-prefix')
+const glob = require('glob')
+const identifierfy = require('identifierfy')
+const flatten = require('lodash.flatten')
 
 function getPattern (path, source) {
   const pattern = source.value.replace(/^glob:/, '').trim()
   if (!pattern) {
     throw path.buildCodeFrameError(`Missing glob pattern '${source.value}'`)
   }
-  if (/^\//.test(pattern)) {
+  if (pattern.startsWith('/')) {
     throw path.buildCodeFrameError(`Glob pattern must be relative, was '${pattern}'`)
   }
   return pattern
 }
 
 function rejectImportDefaultSpecifier (path, specifiers) {
-  for (const { type } of specifiers) {
-    if (type === 'ImportDefaultSpecifier') {
+  for (const specifier of specifiers) {
+    if (specifier.type === 'ImportDefaultSpecifier') {
       throw path.buildCodeFrameError('Cannot import the default member')
     }
   }
 }
 
-export default function ({ types: t }) {
+module.exports = babelCore => {
+  const t = babelCore.types
+
   return {
     visitor: {
       ImportDeclaration (path, file) {
-        const { node: { specifiers, source } } = path
-        if (!t.isStringLiteral(source)) {
+        const node = path.node
+        if (!t.isStringLiteral(node.source)) {
           return
         }
 
-        if (!/^glob:/.test(source.value) && !glob.hasMagic(source.value)) {
+        if (!node.source.value.startsWith('glob:') && !glob.hasMagic(node.source.value)) {
           return
         }
 
-        rejectImportDefaultSpecifier(path, specifiers)
+        rejectImportDefaultSpecifier(path, node.specifiers)
 
-        const fromDir = dirname(file.file.opts.filename)
-        const matches = glob.sync(getPattern(path, source), {
+        const fromDir = nodePath.dirname(file.file.opts.filename)
+        const matches = glob.sync(getPattern(path, node.source), {
           // Search relative to the source file, assuming that location is
           // derived correctly.
           cwd: fromDir,
@@ -58,16 +58,17 @@ export default function ({ types: t }) {
         const lookup = Object.create(null)
         const members = []
         for (const filepath of matches) {
-          const src = './' + relative(fromDir, resolve(fromDir, filepath))
+          const src = './' + nodePath.relative(fromDir, nodePath.resolve(fromDir, filepath))
           const subpath = filepath.slice(prefix.length, filepath.length - suffix.length)
-          const pieces = subpath.split(fileSeparator)
+          const pieces = subpath.split(nodePath.sep)
           const member = pieces.map((name, index) => {
             const id = identifierfy(name, {
               prefixReservedWords: pieces.length === 1,
               prefixInvalidIdentifiers: index === 0
             })
             if (id === null) {
-              throw path.buildCodeFrameError(`Could not generate a valid identifier for '${src}'. The '${name}' component could not be converted.`)
+              throw path.buildCodeFrameError(
+                `Could not generate a valid identifier for '${src}'. The '${name}' component could not be converted.`)
             }
             return id
           }).join('$')
@@ -81,14 +82,18 @@ export default function ({ types: t }) {
           members.push(member)
         }
 
-        if (specifiers.length === 0) {
+        if (node.specifiers.length === 0) {
           path.replaceWithMultiple(members.map(member => t.importDeclaration([], t.stringLiteral(lookup[member]))))
           return
         }
 
-        const makeImport = (localName, src) => t.importDeclaration([t.importDefaultSpecifier(t.identifier(localName))], t.stringLiteral(src))
+        const makeImport = (localName, src) => {
+          return t.importDeclaration([t.importDefaultSpecifier(t.identifier(localName))], t.stringLiteral(src))
+        }
         const makeNamespaceObject = localName => {
-          const properties = members.map(member => t.objectProperty(t.identifier(member), t.identifier(`_${localName}_${member}`)))
+          const properties = members.map(member => {
+            return t.objectProperty(t.identifier(member), t.identifier(`_${localName}_${member}`))
+          })
           return t.variableDeclaration('const', [t.variableDeclarator(t.identifier(localName), t.objectExpression(properties))])
         }
         const freezeNamespaceObject = localName => {
@@ -98,11 +103,13 @@ export default function ({ types: t }) {
               [t.identifier(localName)]))
         }
 
-        const replacement = specifiers.map(({ type, imported, local: { name: localName } }) => {
-          if (type === 'ImportSpecifier') {
-            const { name: importName } = imported
+        const replacement = node.specifiers.map(specifier => {
+          const localName = specifier.local.name
+          if (specifier.type === 'ImportSpecifier') {
+            const importName = specifier.imported.name
             if (!lookup[importName]) {
-              throw path.buildCodeFrameError(`Could not match import '${importName}' to a module. Available members are '${members.join("', '")}'`)
+              throw path.buildCodeFrameError(
+                `Could not match import '${importName}' to a module. Available members are '${members.join("', '")}'`)
             }
 
             return makeImport(localName, lookup[importName])
@@ -116,7 +123,7 @@ export default function ({ types: t }) {
             freezeNamespaceObject(localName)
           )
         })
-        path.replaceWithMultiple([].concat(...replacement))
+        path.replaceWithMultiple(flatten(replacement))
       }
     }
   }
