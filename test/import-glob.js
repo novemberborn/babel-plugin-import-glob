@@ -23,7 +23,7 @@ function check (msg) {
 test('throws if import does not contain a pattern', t => {
   t.throws(
     attempt("import { foo } from 'glob:'"),
-    check("Missing glob pattern 'glob:'"))
+    check("Missing glob pattern ''"))
 })
 
 test('throws if pattern is absolute', t => {
@@ -35,7 +35,7 @@ test('throws if pattern is absolute', t => {
 test('throws if a member identifier cannot be generated', t => {
   t.throws(
     attempt("import * as members from 'glob:fixtures/cannot-generate-identifier/*.txt'"),
-    check("Could not generate a valid identifier for './fixtures/cannot-generate-identifier/-.txt'. The '-' component could not be converted."))
+    check("Could not generate a valid identifier for 'fixtures/cannot-generate-identifier/-.txt'"))
 })
 
 test('throws if members collide', t => {
@@ -150,4 +150,34 @@ test('supports importing modules for their side-effects', t => {
     transform("import 'glob:fixtures/multiple/*.txt'"),
     `import './fixtures/multiple/bar.txt';
 import './fixtures/multiple/foo.txt';`)
+})
+
+test('throw error if you mix index with a second member', t => {
+  t.throws(
+    attempt("import {$0 as foos, foo} from 'fixtures/pattern-position/*/foo.txt'"),
+    check('Cannot mix indexed members'))
+})
+
+test('use first match as member', t => {
+  t.is(
+    transform("import {$0 as foos} from 'fixtures/pattern-position/*/foo.txt'"),
+    `import _foos_one from './fixtures/pattern-position/one/foo.txt';
+import _foos_two from './fixtures/pattern-position/two/foo.txt';
+const foos = {
+  one: _foos_one,
+  two: _foos_two
+};
+Object.freeze(foos);`)
+})
+
+test('use second match as member and ', t => {
+  t.is(
+    transform("import {$1 as foos} from 'fixtures/pattern-position/*/*.foo.txt'"),
+    `import _foos_two from './fixtures/pattern-position/one/two.foo.txt';
+import _foos_three from './fixtures/pattern-position/two/three.foo.txt';
+const foos = {
+  two: _foos_two,
+  three: _foos_three
+};
+Object.freeze(foos);`)
 })
