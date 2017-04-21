@@ -36,6 +36,12 @@ test('throws if pattern is absolute', async t => {
     check("Glob pattern must be relative, was '/root'"))
 })
 
+test('throws if no glob: prefix and does not start with .', async t => {
+  await t.throws(
+    attempt("import { foo } from 'folder/*'"),
+    check("Glob pattern must be relative, was 'folder/*'"))
+})
+
 test('throws if a member identifier cannot be generated', async t => {
   await t.throws(
     attempt("import * as members from 'glob:fixtures/cannot-generate-identifier/*.txt'"),
@@ -75,7 +81,7 @@ import bar from './fixtures/multiple/bar.txt';`)
 
 test('does not require glob prefix', t => {
   t.is(
-    transform("import { foo, bar } from 'fixtures/multiple/*.txt'"),
+    transform("import { foo, bar } from './fixtures/multiple/*.txt'"),
     `import foo from './fixtures/multiple/foo.txt';
 import bar from './fixtures/multiple/bar.txt';`)
 })
@@ -159,13 +165,13 @@ import './fixtures/multiple/foo.txt';`)
 
 test('throw error if you mix index with a second member', async t => {
   await t.throws(
-    attempt("import {$0 as foos, foo} from 'fixtures/pattern-position/*/foo.txt'"),
+    attempt("import {$0 as foos, foo} from './fixtures/pattern-position/*/foo.txt'"),
     check('Cannot mix indexed members'))
 })
 
 test('use first match as member', t => {
   t.is(
-    transform("import {$0 as foos} from 'fixtures/pattern-position/*/foo.txt'"),
+    transform("import {$0 as foos} from './fixtures/pattern-position/*/foo.txt'"),
     `import _foos_one from './fixtures/pattern-position/one/foo.txt';
 import _foos_two from './fixtures/pattern-position/two/foo.txt';
 const foos = {
@@ -177,7 +183,7 @@ Object.freeze(foos);`)
 
 test('use second match as member and ', t => {
   t.is(
-    transform("import {$1 as foos} from 'fixtures/pattern-position/*/*.foo.txt'"),
+    transform("import {$1 as foos} from './fixtures/pattern-position/*/*.foo.txt'"),
     `import _foos_two from './fixtures/pattern-position/one/two.foo.txt';
 import _foos_three from './fixtures/pattern-position/two/three.foo.txt';
 const foos = {

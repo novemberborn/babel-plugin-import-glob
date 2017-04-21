@@ -149,8 +149,10 @@ module.exports = babelCore => {
         const error = message => path.buildCodeFrameError(message)
 
         let pattern = source.value
+        let assumeRel = false
         if (pattern.startsWith('glob:')) {
           pattern = pattern.replace(/^glob:/, '')
+          assumeRel = true
         } else if (!hasMagic(pattern)) {
           return
         }
@@ -163,7 +165,7 @@ module.exports = babelCore => {
           throw error(`Missing glob pattern '${pattern}'`)
         }
 
-        if (pattern.startsWith('/')) {
+        if (pattern.startsWith('/') || (!assumeRel && !pattern.startsWith('.'))) {
           throw error(`Glob pattern must be relative, was '${pattern}'`)
         }
 
