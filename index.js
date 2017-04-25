@@ -7,16 +7,15 @@ const hasMagic = require('glob').hasMagic
 const identifierfy = require('identifierfy')
 
 const dirname = nodePath.dirname
-const extname = nodePath.extname
 const relative = nodePath.relative
 const resolve = nodePath.resolve
 const fileSeparator = nodePath.sep
 
-function makeRe (pattern) {
+function makeRe (set) {
   let min, max
   const parts = []
-  for (let i = 0; i < pattern.length; i++) {
-    const p = pattern[i]
+  for (let i = 0; i < set.length; i++) {
+    const p = set[i]
     if (typeof p !== 'string') {
       if (p === GLOBSTAR) {
         parts.push('(?:(?!(?:/|^)\\.).)*?')
@@ -36,18 +35,23 @@ function makeRe (pattern) {
   return '^' + parts.join('/') + '$'
 }
 
+function extLen (set) {
+  const last = set[set.length - 1]
+  if (typeof last === 'string' || last === GLOBSTAR) {
+    return 0
+  }
+  return last._glob.match(/(?:\.[^.*?!+@[\]()]+)*$/)[0].length
+}
+
 function generateMembers (gm, cwd) {
   const found = gm.found
   const set = gm.minimatch.set[0]
   const regexp = new RegExp(makeRe(set), 'i')
-  const includesFile = typeof set[set.length - 1] !== 'string'
+  const ext = extLen(set)
   return found.map(file => {
     let part = file.match(regexp)[1]
-    if (includesFile) {
-      const ext = extname(part).length
-      if (ext > 0) {
-        part = part.slice(0, -ext)
-      }
+    if (ext) {
+      part = part.slice(0, -ext)
     }
     return {
       file,

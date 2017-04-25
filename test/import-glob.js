@@ -180,3 +180,27 @@ const members = {
 };
 Object.freeze(members);`)
 })
+
+test('sub-extension removed because it is in the pattern', t => {
+  t.is(
+    transform("import * as members from 'glob:./fixtures/ext-from-pattern/*.foo.txt'"),
+    `import _members_one from './fixtures/ext-from-pattern/one.foo.txt';
+import _members_two from './fixtures/ext-from-pattern/two.foo.txt';
+const members = {
+  one: _members_one,
+  two: _members_two
+};
+Object.freeze(members);`)
+})
+
+test('sub-extension not removed because it is not in the pattern', t => {
+  t.is(
+    transform("import * as members from 'glob:./fixtures/ext-from-pattern/*.txt'"),
+    `import _members_oneFoo from './fixtures/ext-from-pattern/one.foo.txt';
+import _members_twoFoo from './fixtures/ext-from-pattern/two.foo.txt';
+const members = {
+  oneFoo: _members_oneFoo,
+  twoFoo: _members_twoFoo
+};
+Object.freeze(members);`)
+})
