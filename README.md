@@ -44,25 +44,25 @@ have a directory layout like this:
 In `index.js` you can write:
 
 ```js
-import { main, _partial } from 'templates/*.handlebars.js'
+import { main, _partial } from './templates/*.handlebars.js'
 ```
 
 You can add an optional `glob:` prefix:
 
 ```js
-import { main, _partial } from 'glob:templates/*.handlebars.js'
+import { main, _partial } from 'glob:./templates/*.handlebars.js'
 ```
 
 You can alias members:
 
 ```js
-import { main, _partial as partial } from 'templates/*.handlebars.js'
+import { main, _partial as partial } from './templates/*.handlebars.js'
 ```
 
 Or import all matches into a namespace object:
 
 ```js
-import * as templates from 'templates/*.handlebars.js'
+import * as templates from './templates/*.handlebars.js'
 // Provides `templates.main` and `templates._partial`
 ```
 
@@ -70,13 +70,13 @@ Note that you **cannot import the default** from the glob pattern. The following
 **won't work** and throws a `SyntaxError`:
 
 ```js
-import myTemplates from 'templates/*.handlebars.js' // This will throw a SyntaxError
+import myTemplates from './templates/*.handlebars.js' // This will throw a SyntaxError
 ```
 
 You can load modules for their side-effects though:
 
 ```js
-import 'modules-with-side-effects/*.js'
+import './modules-with-side-effects/*.js'
 ```
 
 ### Glob patterns
@@ -84,9 +84,7 @@ import 'modules-with-side-effects/*.js'
 The plugin uses the `glob` package. Please refer to [its documentation regarding
 the pattern syntax](https://www.npmjs.com/package/glob#glob-primer).
 
-The glob pattern must be relative. It may start with `./` or `../`. If you don't
-specify either then `./` is assumed. A `SyntaxError` is thrown if you start the
-pattern with `/`.
+The glob pattern must be relative. It must start with `./` or `../`. A `SyntaxError` is thrown otherwise.
 
 The pattern is resolved relative to the file containing the `import` statement.
 
@@ -116,7 +114,7 @@ A `SyntaxError` is throw when importing a member that does not correspond to a
 match:
 
 ```js
-import { doesNotExist } from 'templates/*.handlebars.js' // This will throw a SyntaxError
+import { doesNotExist } from './templates/*.handlebars.js' // This will throw a SyntaxError
 ```
 
 Here's an overview of how the members are determined for additional matches.
