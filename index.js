@@ -1,62 +1,90 @@
 'use strict'
 
 const nodePath = require('path')
-const GlobSync = require('glob/sync').GlobSync
 const GLOBSTAR = require('minimatch').GLOBSTAR
-const hasMagic = require('glob').hasMagic
+const glob = require('glob')
 const identifierfy = require('identifierfy')
 
 const dirname = nodePath.dirname
 const relative = nodePath.relative
 const resolve = nodePath.resolve
 const fileSeparator = nodePath.sep
+const hasMagic = glob.hasMagic
+const GlobSync = glob.GlobSync
 
-function makeRe (set) {
-  let min, max
-  const parts = []
-  for (let i = 0; i < set.length; i++) {
-    const p = set[i]
-    if (typeof p !== 'string') {
-      if (p === GLOBSTAR) {
-        parts.push('(?:(?!(?:/|^)\\.).)*?')
+const twoStar = '(?:(?!(?:/|^)\\.).)*?' // match "**"
+
+function makeSubpathExpressions (mm) {
+  const set = mm.set
+  const slen = set.length
+  const result = []
+  for (let s = 0; s < slen; s++) {
+    const sn = (s + 1) % slen // next or first exp
+    const exp = set[s]
+    const parts = []
+
+    let endParen = -1
+    for (let e = 0; e < exp.length; e++) {
+      let src
+      let isDynamic = true
+      const subexp = exp[e]
+      if (subexp === GLOBSTAR) {
+        src = twoStar
+      } else if (typeof subexp !== 'string') {
+        src = subexp.source.slice(1, -1)
       } else {
-        parts.push(p._src)
+        src = regExpEscape(subexp)
+        // if /{a,b}/ is used isDynamic will be true
+        isDynamic = (exp[e] !== set[sn][e])
       }
-      if (min === undefined) {
-        min = i
+      if (isDynamic) {
+        if (endParen < 0) {
+          src = '(' + src
+        }
+        endParen = e
       }
-      max = i
-    } else {
-      parts.push(p.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'))
+      parts.push(src)
     }
+    parts[endParen] += ')'
+
+    let extname
+    const last = exp.length - 1
+    if (typeof exp[last] !== 'string' || exp[last] !== set[sn][last]) {
+      // grab extension from filename
+      extname = mm.globParts[s][last].match(/(?:\.[A-Za-z0-9]+)*$/)[0]
+    }
+
+    result.push({
+      regexp: new RegExp('^' + parts.join('/') + '$', 'i'),
+      extname
+    })
   }
-  parts[max] += ')'
-  parts[min] = '(' + parts[min]
-  return '^' + parts.join('/') + '$'
+  return result
 }
 
-function extLen (set) {
-  const last = set[set.length - 1]
-  if (typeof last === 'string' || last === GLOBSTAR) {
-    return 0
-  }
-  return last._glob.match(/(?:\.[^.*?!+@[\]()]+)*$/)[0].length
+function regExpEscape (s) {
+  return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
 }
 
 function generateMembers (gm, cwd) {
-  const found = gm.found
-  const set = gm.minimatch.set[0]
-  const regexp = new RegExp(makeRe(set), 'i')
-  const ext = extLen(set)
-  return found.map(file => {
-    let part = file.match(regexp)[1]
-    if (ext) {
-      part = part.slice(0, -ext)
+  const expressions = makeSubpathExpressions(gm.minimatch)
+  return gm.found.map(file => {
+    let subpath
+    for (const exp of expressions) {
+      const match = file.match(exp.regexp)
+      if (match) {
+        if (exp.extname) {
+          subpath = match[1].slice(0, -exp.extname.length)
+        } else {
+          subpath = match[1]
+        }
+        break
+      }
     }
     return {
       file,
       relative: './' + relative(cwd, resolve(cwd, file)),
-      name: memberify(part)
+      name: memberify(subpath)
     }
   })
 }
@@ -127,18 +155,20 @@ module.exports = babelCore => {
         const error = message => path.buildCodeFrameError(message)
 
         let pattern = source.value
+
+        if (!hasMagic(pattern)) {
+          if (pattern.startsWith('glob:')) {
+            throw error(`Missing glob pattern '${pattern}'`)
+          }
+          return
+        }
+
         if (pattern.startsWith('glob:')) {
           pattern = pattern.replace(/^glob:/, '')
-        } else if (!hasMagic(pattern)) {
-          return
         }
 
         if (hasImportDefaultSpecifier(specifiers)) {
           throw error('Cannot import the default member')
-        }
-
-        if (!pattern) {
-          throw error(`Missing glob pattern '${pattern}'`)
         }
 
         if (!pattern.startsWith('.')) {
@@ -149,7 +179,7 @@ module.exports = babelCore => {
         const gm = GlobSync(pattern, {cwd, strict: true})
         const members = generateMembers(gm, cwd)
         const unique = Object.create(null)
-        members.forEach(m => {
+        for (const m of members) {
           if (m.name === null) {
             throw error(`Could not generate a valid identifier for '${m.file}'`)
           }
@@ -158,43 +188,42 @@ module.exports = babelCore => {
             throw error(`Found colliding members '${m.name}'`)
           }
           unique[m.name] = true
-        })
-
-        const replacement = []
-        specifiers.forEach(s => {
-          const type = s.type
-          const localName = s.local.name
-          if (type === 'ImportSpecifier') {
-            const importName = s.imported.name
-            const member = members.find(m => m.name === importName)
-            if (!member) {
-              const names = members.map(m => m.name).join("', '")
-              throw error(`Could not match import '${importName}' to a module. Available members are '${names}'`)
-            }
-            replacement.push(makeImport(t, localName, member.relative))
-          } else {
-            // Only ImportNamespaceSpecifier can be remaining, since
-            // importDefaultSpecifier has previously been rejected.
-            members.forEach(
-              m => replacement.push(
-                  makeImport(t, `_${localName}_${m.name}`, m.relative)
-              )
-            )
-            replacement.push(
-              makeNamespaceObject(t, localName, members),
-              freezeNamespaceObject(t, localName)
-            )
-          }
-        })
-
-        if (replacement.length === 0) {
-          members.forEach(
-            m => replacement.push(
-                t.importDeclaration([], t.stringLiteral(m.relative))
-            )
-          )
         }
 
+        const replacement = []
+        if (specifiers.length > 0) {
+          for (const s of specifiers) {
+            const type = s.type
+            const localName = s.local.name
+            if (type === 'ImportSpecifier') {
+              const importName = s.imported.name
+              const member = members.find(m => m.name === importName)
+              if (!member) {
+                const names = members.map(m => m.name).join("', '")
+                throw error(`Could not match import '${importName}' to a module. Available members are '${names}'`)
+              }
+              replacement.push(makeImport(t, localName, member.relative))
+            } else {
+              // Only ImportNamespaceSpecifier can be remaining, since
+              // importDefaultSpecifier has previously been rejected.
+              for (const m of members) {
+                replacement.push(
+                  makeImport(t, `_${localName}_${m.name}`, m.relative)
+                )
+              }
+              replacement.push(
+                makeNamespaceObject(t, localName, members),
+                freezeNamespaceObject(t, localName)
+              )
+            }
+          }
+        } else {
+          for (const m of members) {
+            replacement.push(
+              t.importDeclaration([], t.stringLiteral(m.relative))
+            )
+          }
+        }
         path.replaceWithMultiple(replacement)
       }
     }

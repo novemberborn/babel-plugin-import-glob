@@ -90,7 +90,7 @@ The pattern is resolved relative to the file containing the `import` statement.
 
 ### Import members
 
-Identifiers are generated for all matches using the unique portion of each file path. File extension found in the pattern is also removed.
+Identifiers are generated for all matches using the unique portion of each file path. File extension found in the pattern are also removed.
 
 File-separators in the resulting strings are replaced by dollar signs. The directory components are then [converted into identifiers](https://github.com/novemberborn/identifierfy).
 

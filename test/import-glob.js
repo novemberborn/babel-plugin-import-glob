@@ -27,24 +27,24 @@ function check (msg) {
 test('throws if import does not contain a pattern', async t => {
   await t.throws(
     attempt("import { foo } from 'glob:'"),
-    check("Missing glob pattern ''"))
+    check("Missing glob pattern 'glob:'"))
 })
 
 test('throws if pattern is absolute', async t => {
   await t.throws(
-    attempt("import { foo } from 'glob:/folder'"),
-    check("Glob pattern must be relative, was '/folder'"))
+    attempt("import { foo } from 'glob:/folder/*'"),
+    check("Glob pattern must be relative, was '/folder/*'"))
 })
 
 test('throws if pattern is not relative', async t => {
   await t.throws(
-    attempt("import { foo } from 'glob:folder'"),
-    check("Glob pattern must be relative, was 'folder'"))
+    attempt("import { foo } from 'glob:folder/*'"),
+    check("Glob pattern must be relative, was 'folder/*'"))
 })
 
 test('throws if no glob: prefix and does not start with .', async t => {
   await t.throws(
-    attempt("import { foo } from 'folder/*'"),
+    attempt("import { foo } from 'glob:folder/*'"),
     check("Glob pattern must be relative, was 'folder/*'"))
 })
 
@@ -196,6 +196,30 @@ Object.freeze(members);`)
 test('sub-extension not removed because it is not in the pattern', t => {
   t.is(
     transform("import * as members from 'glob:./fixtures/ext-from-pattern/*.txt'"),
+    `import _members_oneFoo from './fixtures/ext-from-pattern/one.foo.txt';
+import _members_twoFoo from './fixtures/ext-from-pattern/two.foo.txt';
+const members = {
+  oneFoo: _members_oneFoo,
+  twoFoo: _members_twoFoo
+};
+Object.freeze(members);`)
+})
+
+test('test braced paths', t => {
+  t.is(
+    transform("import * as members from 'glob:./fixtures/use-dir-name/{one,two}/foo.txt'"),
+    `import _members_one from './fixtures/use-dir-name/one/foo.txt';
+import _members_two from './fixtures/use-dir-name/two/foo.txt';
+const members = {
+  one: _members_one,
+  two: _members_two
+};
+Object.freeze(members);`)
+})
+
+test('extension should still be ommited within brace', t => {
+  t.is(
+    transform("import * as members from 'glob:./fixtures/ext-from-pattern/*.{txt,csv}'"),
     `import _members_oneFoo from './fixtures/ext-from-pattern/one.foo.txt';
 import _members_twoFoo from './fixtures/ext-from-pattern/two.foo.txt';
 const members = {
