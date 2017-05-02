@@ -221,9 +221,11 @@ test('extension should still be ommited within brace', t => {
   t.is(
     transform("import * as members from 'glob:./fixtures/ext-from-pattern/*.{txt,csv}'"),
     `import _members_oneFoo from './fixtures/ext-from-pattern/one.foo.txt';
+import _members_three from './fixtures/ext-from-pattern/three.csv';
 import _members_twoFoo from './fixtures/ext-from-pattern/two.foo.txt';
 const members = {
   oneFoo: _members_oneFoo,
+  three: _members_three,
   twoFoo: _members_twoFoo
 };
 Object.freeze(members);`)

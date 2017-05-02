@@ -1,16 +1,9 @@
 'use strict'
 
-const nodePath = require('path')
+const path = require('path')
 const GLOBSTAR = require('minimatch').GLOBSTAR
 const glob = require('glob')
 const identifierfy = require('identifierfy')
-
-const dirname = nodePath.dirname
-const relative = nodePath.relative
-const resolve = nodePath.resolve
-const fileSeparator = nodePath.sep
-const hasMagic = glob.hasMagic
-const GlobSync = glob.GlobSync
 
 const twoStar = '(?:(?!(?:/|^)\\.).)*?' // match "**"
 
@@ -83,14 +76,14 @@ function generateMembers (gm, cwd) {
     }
     return {
       file,
-      relative: './' + relative(cwd, resolve(cwd, file)),
+      relative: './' + path.relative(cwd, path.resolve(cwd, file)),
       name: memberify(subpath)
     }
   })
 }
 
 function memberify (subpath) {
-  const pieces = subpath.split(fileSeparator)
+  const pieces = subpath.split(path.sep)
   const prefixReservedWords = pieces.length === 1
   const ids = []
   for (let i = 0; i < pieces.length; i++) {
@@ -108,12 +101,7 @@ function memberify (subpath) {
 }
 
 function hasImportDefaultSpecifier (specifiers) {
-  for (const s of specifiers) {
-    if (s.type === 'ImportDefaultSpecifier') {
-      return true
-    }
-  }
-  return false
+  return specifiers.some(s => s.type === 'ImportDefaultSpecifier')
 }
 
 function makeImport (t, localName, src) {
@@ -149,14 +137,14 @@ module.exports = babelCore => {
   const t = babelCore.types
   return {
     visitor: {
-      ImportDeclaration (path, state) {
-        const specifiers = path.node.specifiers
-        const source = path.node.source
-        const error = message => path.buildCodeFrameError(message)
+      ImportDeclaration (ast, state) {
+        const specifiers = ast.node.specifiers
+        const source = ast.node.source
+        const error = message => ast.buildCodeFrameError(message)
 
         let pattern = source.value
 
-        if (!hasMagic(pattern)) {
+        if (!glob.hasMagic(pattern)) {
           if (pattern.startsWith('glob:')) {
             throw error(`Missing glob pattern '${pattern}'`)
           }
@@ -175,8 +163,8 @@ module.exports = babelCore => {
           throw error(`Glob pattern must be relative, was '${pattern}'`)
         }
 
-        const cwd = dirname(state.file.opts.filename)
-        const gm = GlobSync(pattern, {cwd, strict: true})
+        const cwd = path.dirname(state.file.opts.filename)
+        const gm = glob.GlobSync(pattern, {cwd, strict: true})
         const members = generateMembers(gm, cwd)
         const unique = Object.create(null)
         for (const m of members) {
@@ -224,7 +212,7 @@ module.exports = babelCore => {
             )
           }
         }
-        path.replaceWithMultiple(replacement)
+        ast.replaceWithMultiple(replacement)
       }
     }
   }
