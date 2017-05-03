@@ -175,7 +175,6 @@ module.exports = babelCore => {
           unique[member.name] = true
         }
 
-        const replacement = []
         if (specifiers.length > 0) {
           const replacement = []
           for (const specifier of specifiers) {
@@ -198,12 +197,12 @@ module.exports = babelCore => {
               replacement.push(makeNamespaceObject(t, localName, members), freezeNamespaceObject(t, localName))
             }
           }
+          ast.replaceWithMultiple(replacement)
         } else {
-          for (const member of members) {
-            replacement.push(t.importDeclaration([], t.stringLiteral(member.relative)))
-          }
+          ast.replaceWithMultiple(members.map(member => {
+            return t.importDeclaration([], t.stringLiteral(member.relative))
+          }))
         }
-        ast.replaceWithMultiple(replacement)
       }
     }
   }
