@@ -84,15 +84,19 @@ import './modules-with-side-effects/*.js'
 The plugin uses the `glob` package. Please refer to [its documentation regarding
 the pattern syntax](https://www.npmjs.com/package/glob#glob-primer).
 
-The glob pattern must be relative. It must start with `./` or `../`. A `SyntaxError` is thrown otherwise.
+The glob pattern must be relative. It must start with `./` or `../`. A
+`SyntaxError` is thrown otherwise.
 
 The pattern is resolved relative to the file containing the `import` statement.
 
 ### Import members
 
-Identifiers are generated for all matches using the unique portion of each file path. File extension found in the pattern are also removed.
+Identifiers are generated for all matches using the unique portion of each file
+path. File extensions found in the pattern are also removed.
 
-File-separators in the resulting strings are replaced by dollar signs. The directory components are then [converted into identifiers](https://github.com/novemberborn/identifierfy).
+File-separators in the resulting strings are replaced by dollar signs. The
+directory components are then [converted into
+identifiers](https://github.com/novemberborn/identifierfy).
 
 A valid identifier cannot always be generated. If that's the case a
 `SyntaxError` is thrown with more details. Similarly multiple matches may result
