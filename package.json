@@ -37,8 +37,8 @@
   "dependencies": {
     "escape-string-regexp": "^1.0.5",
     "glob": "^7.0.0",
-    "minimatch": "^3.0.3",
-    "identifierfy": "^1.1.0"
+    "identifierfy": "^1.1.0",
+    "minimatch": "^3.0.3"
   },
   "nyc": {
     "reporter": [
