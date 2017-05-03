@@ -8,52 +8,55 @@ const identifierfy = require('identifierfy')
 
 const twoStar = '(?:(?!(?:/|^)\\.).)*?' // match "**"
 
-function makeSubpathExpressions (mm) {
-  const set = mm.set
-  const slen = set.length
-  const result = []
-  for (let s = 0; s < slen; s++) {
-    const sn = (s + 1) % slen // next or first exp
-    const exp = set[s]
+function makeSubpathExpressions (minimatch) {
+  return minimatch.set.map((expressions, index) => {
+    const nextExpressions = minimatch.set[(index + 1) % minimatch.set.length]
+
     const parts = []
+    let lastCaptureIndex = -1
+    for (let expressionIndex = 0; expressionIndex < expressions.length; expressionIndex++) {
+      const expression = expressions[expressionIndex]
 
-    let endParen = -1
-    for (let e = 0; e < exp.length; e++) {
-      let src
-      let isDynamic = true
-      const subexp = exp[e]
-      if (subexp === GLOBSTAR) {
-        src = twoStar
-      } else if (typeof subexp !== 'string') {
-        src = subexp.source.slice(1, -1)
+      let capture = true
+      let partialPattern
+      if (typeof expression === 'string') {
+        partialPattern = escapeStringRegexp(expression)
+        // `capture` should only be true if brace expansion is used, and … some
+        // other condition?
+        // FIXME: What is the logic here? {a,b} will lead to capture, as will
+        // {a,a*}. Is this to do with multiple braces being expanded? E.g.
+        // {a,b}/foo/{c,d}?
+        capture = expression !== nextExpressions[expressionIndex]
+      } else if (expression === GLOBSTAR) {
+        partialPattern = twoStar
       } else {
-        src = escapeStringRegexp(subexp)
-        // if /{a,b}/ is used isDynamic will be true
-        isDynamic = (exp[e] !== set[sn][e])
+        partialPattern = expression.source.slice(1, -1)
       }
-      if (isDynamic) {
-        if (endParen < 0) {
-          src = '(' + src
+
+      if (capture) {
+        if (lastCaptureIndex < 0) {
+          partialPattern = '(' + partialPattern
         }
-        endParen = e
+        lastCaptureIndex = expressionIndex
       }
-      parts.push(src)
+      parts.push(partialPattern)
     }
-    parts[endParen] += ')'
+    parts[lastCaptureIndex] += ')'
 
-    let extname
-    const last = exp.length - 1
-    if (typeof exp[last] !== 'string' || exp[last] !== set[sn][last]) {
+    const last = expressions.length - 1
+    // FIXME: Why check for strings? What is the significance of the expressions[last] !== nextExpressions[last]?
+    // Why not use path.extname()?
+    const extname = typeof expressions[last] !== 'string' || expressions[last] !== nextExpressions[last]
       // grab extension from filename
-      extname = mm.globParts[s][last].match(/(?:\.[A-Za-z0-9]+)*$/)[0]
-    }
+      ? minimatch.globParts[index][last].match(/(?:\.[A-Za-z0-9]+)*$/)[0]
+      : null
 
-    result.push({
+    return {
+      // FIXME: Why even return extname? Can't it be excluded from the regexp match?
       regexp: new RegExp('^' + parts.join('/') + '$', 'i'),
       extname
-    })
-  }
-  return result
+    }
+  })
 }
 
 function generateMembers (globObj, cwd) {
