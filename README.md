@@ -104,10 +104,10 @@ in the same identifier. This also results in a `SyntaxError` being thrown.
 
 For the `templates` example above the matches are:
 
-* `templates/main.handlebars.js`
-* `templates/_partial.handlebars.js`
+* `./templates/main.handlebars.js`
+* `./templates/_partial.handlebars.js`
 
-Both matches share `templates/` as their path prefix, and `.handlebars.js` as
+Both matches share `./templates/` as their path prefix, and `.handlebars.js` as
 their extension. These strings are removed, resulting in `main` and `_partial`.
 These are valid identifiers and therefore used as the import members.
 
@@ -119,16 +119,16 @@ import { doesNotExist } from './templates/*.handlebars.js' // This will throw a 
 ```
 
 Here's an overview of how the members are determined for additional matches.
-Assume `templates/` is the common path prefix and `.handlebars.js` the common
+Assume `./templates/` is the common path prefix and `.handlebars.js` the common
 extension:
 
 Match|Result|Reason
 :---|:---|:---
-`templates/terms-and-conditions.handlebars.js`|`termsAndConditions`|The `-` cannot be used in the identifier so it's removed. The following character is uppercased
-`templates/blog/footer.handlebars.js`|`blog$footer`|The `blog` directory wasn't removed so is joined with the `footer` name using a dollar sign
-`templates/-main.handlebars.js`|`SyntaxError`|The `-` is removed, resulting in the same identifier as for `main.handlebars.js`
-`templates/new.handlebars.js`|`_new`|`new` is a reserved word so it's prefixed with an underscore
-`templates/blog/new.handlebars.js`|`blog$new`|Even though `new` is a reserved word, it's combined with `blog$` so no prefix is necessary
-`templates/404.handlebars.js`|`_404`|Identifiers can't start with digits so it's prefixed with an underscore
-`templates/error-pages/404.handlebars.js`|`errorPages$404`|Now that `404` is combined with `errorPages$` it no longer needs to be prefixed
-`templates/🙊.handlebars.js`|`SyntaxError`|No identifier can be generated for `🙊`
+`./templates/terms-and-conditions.handlebars.js`|`termsAndConditions`|The `-` cannot be used in the identifier so it's removed. The following character is uppercased
+`./templates/blog/footer.handlebars.js`|`blog$footer`|The `blog` directory wasn't removed so is joined with the `footer` name using a dollar sign
+`./templates/-main.handlebars.js`|`SyntaxError`|The `-` is removed, resulting in the same identifier as for `main.handlebars.js`
+`./templates/new.handlebars.js`|`_new`|`new` is a reserved word so it's prefixed with an underscore
+`./templates/blog/new.handlebars.js`|`blog$new`|Even though `new` is a reserved word, it's combined with `blog$` so no prefix is necessary
+`./templates/404.handlebars.js`|`_404`|Identifiers can't start with digits so it's prefixed with an underscore
+`./templates/error-pages/404.handlebars.js`|`errorPages$404`|Now that `404` is combined with `errorPages$` it no longer needs to be prefixed
+`./templates/🙊.handlebars.js`|`SyntaxError`|No identifier can be generated for `🙊`
