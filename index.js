@@ -1,6 +1,7 @@
 'use strict'
 
 const path = require('path')
+const escapeStringRegexp = require('escape-string-regexp')
 const GLOBSTAR = require('minimatch').GLOBSTAR
 const glob = require('glob')
 const identifierfy = require('identifierfy')
@@ -26,7 +27,7 @@ function makeSubpathExpressions (mm) {
       } else if (typeof subexp !== 'string') {
         src = subexp.source.slice(1, -1)
       } else {
-        src = regExpEscape(subexp)
+        src = escapeStringRegexp(subexp)
         // if /{a,b}/ is used isDynamic will be true
         isDynamic = (exp[e] !== set[sn][e])
       }
@@ -53,10 +54,6 @@ function makeSubpathExpressions (mm) {
     })
   }
   return result
-}
-
-function regExpEscape (s) {
-  return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
 }
 
 function generateMembers (gm, cwd) {
