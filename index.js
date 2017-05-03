@@ -56,15 +56,15 @@ function makeSubpathExpressions (mm) {
   return result
 }
 
-function generateMembers (gm, cwd) {
-  const expressions = makeSubpathExpressions(gm.minimatch)
-  return gm.found.map(file => {
+function generateMembers (globObj, cwd) {
+  const expressions = makeSubpathExpressions(globObj.minimatch)
+  return globObj.found.map(file => {
     let subpath
-    for (const exp of expressions) {
-      const match = file.match(exp.regexp)
+    for (const expression of expressions) {
+      const match = file.match(expression.regexp)
       if (match) {
-        if (exp.extname) {
-          subpath = match[1].slice(0, -exp.extname.length)
+        if (expression.extname) {
+          subpath = match[1].slice(0, -expression.extname.length)
         } else {
           subpath = match[1]
         }
@@ -83,11 +83,11 @@ function memberify (subpath) {
   const pieces = subpath.split(path.sep)
   const prefixReservedWords = pieces.length === 1
   const ids = []
-  for (let i = 0; i < pieces.length; i++) {
-    const name = pieces[i]
+  for (let index = 0; index < pieces.length; index++) {
+    const name = pieces[index]
     const id = identifierfy(name, {
       prefixReservedWords,
-      prefixInvalidIdentifiers: i === 0
+      prefixInvalidIdentifiers: index === 0
     })
     if (id === null) {
       return null
@@ -98,7 +98,7 @@ function memberify (subpath) {
 }
 
 function hasImportDefaultSpecifier (specifiers) {
-  return specifiers.some(s => s.type === 'ImportDefaultSpecifier')
+  return specifiers.some(specifier => specifier.type === 'ImportDefaultSpecifier')
 }
 
 function makeImport (t, localName, src) {
@@ -117,8 +117,8 @@ function freezeNamespaceObject (t, localName) {
 }
 
 function makeNamespaceObject (t, localName, members) {
-  const properties = members.map(m => t.objectProperty(
-    t.identifier(m.name), t.identifier(`_${localName}_${m.name}`)
+  const properties = members.map(member => t.objectProperty(
+    t.identifier(member.name), t.identifier(`_${localName}_${member.name}`)
   ))
   return t.variableDeclaration(
     'const', [
@@ -161,27 +161,28 @@ module.exports = babelCore => {
         }
 
         const cwd = path.dirname(state.file.opts.filename)
-        const gm = glob.GlobSync(pattern, {cwd, strict: true})
-        const members = generateMembers(gm, cwd)
+        const globObj = new glob.GlobSync(pattern, {cwd, strict: true})
+        const members = generateMembers(globObj, cwd)
         const unique = Object.create(null)
-        for (const m of members) {
-          if (m.name === null) {
-            throw error(`Could not generate a valid identifier for '${m.file}'`)
+        for (const member of members) {
+          if (member.name === null) {
+            throw error(`Could not generate a valid identifier for '${member.file}'`)
           }
-          if (unique[m.name]) {
+          if (unique[member.name]) {
             // hyphen conversion means foo-bar and fooBar will collide.
-            throw error(`Found colliding members '${m.name}'`)
+            throw error(`Found colliding members '${member.name}'`)
           }
-          unique[m.name] = true
+          unique[member.name] = true
         }
 
         const replacement = []
         if (specifiers.length > 0) {
-          for (const s of specifiers) {
-            const type = s.type
-            const localName = s.local.name
+          const replacement = []
+          for (const specifier of specifiers) {
+            const type = specifier.type
+            const localName = specifier.local.name
             if (type === 'ImportSpecifier') {
-              const importName = s.imported.name
+              const importName = specifier.imported.name
               const member = members.find(m => m.name === importName)
               if (!member) {
                 const names = members.map(m => m.name).join("', '")
@@ -191,22 +192,15 @@ module.exports = babelCore => {
             } else {
               // Only ImportNamespaceSpecifier can be remaining, since
               // importDefaultSpecifier has previously been rejected.
-              for (const m of members) {
-                replacement.push(
-                  makeImport(t, `_${localName}_${m.name}`, m.relative)
-                )
+              for (const member of members) {
+                replacement.push(makeImport(t, `_${localName}_${member.name}`, member.relative))
               }
-              replacement.push(
-                makeNamespaceObject(t, localName, members),
-                freezeNamespaceObject(t, localName)
-              )
+              replacement.push(makeNamespaceObject(t, localName, members), freezeNamespaceObject(t, localName))
             }
           }
         } else {
-          for (const m of members) {
-            replacement.push(
-              t.importDeclaration([], t.stringLiteral(m.relative))
-            )
+          for (const member of members) {
+            replacement.push(t.importDeclaration([], t.stringLiteral(member.relative)))
           }
         }
         ast.replaceWithMultiple(replacement)
