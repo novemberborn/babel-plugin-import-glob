@@ -14,8 +14,8 @@ const twoStar = '(?:(?!(?:/|^)\\.).)*?' // match '**'
 //
 // given 'foo/**/{bar, bat}/*.txt', set would be
 //   [
-//     [ 'foo', GLOBSTAR, 'bar', /[^\/]+\.txt/ ],
-//     [ 'foo', GLOBSTAR, 'bat', /[^\/]+\.txt/ ]
+//     [ 'foo', GLOBSTAR, 'bar', /^[^\/]+\.txt$/ ],
+//     [ 'foo', GLOBSTAR, 'bat', /^[^\/]+\.txt$/ ]
 //   ]
 //
 // flatten it to
@@ -55,22 +55,20 @@ function joinExpression (expression) {
   return expression[0]
 }
 
-// splitExtensions takes a RegExp string and splits off extension
+// splitExtension takes a RegExp string and splits off extension
 //
 // given [ '[^/]+\.txt', '[^/]+\.csv' ]
 // becomes [ [ '[^/]+', '[^/]+' ], [ '\.txt', '\.csv' ] ]
 //
-function splitExtensions (expressions) {
+function splitExtension (expressions) {
   const filenames = []
   const extensions = []
   for (const expression of expressions) {
-    const extension = expression.match(/(?:\\\.[A-Za-z0-9]+)*$/)[0]
-    if (extension) {
-      filenames.push(expression.slice(0, -extension.length))
-      extensions.push(extension)
-    } else {
-      filenames.push(expression)
+    const match = expression.match(/^(.*?)((?:\\\.[A-Za-z0-9]+)*)$/)
+    if (match[2]) {
+      extensions.push(match[2])
     }
+    filenames.push(match[1])
   }
   return [filenames, extensions]
 }
@@ -82,7 +80,7 @@ function makeSubpathExpression (set) {
 
   let extensionExpression = []
   if (captureStop === expressions.length - 1) {
-    const split = splitExtensions(expressions[captureStop])
+    const split = splitExtension(expressions[captureStop])
     expressions[captureStop] = uniq(split[0])
     extensionExpression = uniq(split[1])
   }
