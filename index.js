@@ -19,7 +19,7 @@ const twoStar = '(?:(?!(?:/|^)\\.).)*?' // match '**'
 //   ]
 //
 // flatten it to
-//   [ 'foo', twoStar, [ 'bar', 'bat' ], '[^/]+\.txt' ]
+//   [ 'foo', [ twoStar ], [ 'bar', 'bat' ], [ '[^/]+\.txt' ] ]
 //
 function flattenSet (set) {
   return set[0].map((firstExpression, index) => {
