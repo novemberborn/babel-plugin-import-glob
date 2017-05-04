@@ -5,75 +5,110 @@ const escapeStringRegexp = require('escape-string-regexp')
 const GLOBSTAR = require('minimatch').GLOBSTAR
 const glob = require('glob')
 const identifierfy = require('identifierfy')
+const uniq = require('lodash.uniq')
+const findLastIndex = require('lodash.findlastindex')
 
-const twoStar = '(?:(?!(?:/|^)\\.).)*?' // match "**"
+const twoStar = '(?:(?!(?:/|^)\\.).)*?' // match '**'
 
-function makeSubpathExpressions (minimatch) {
-  return minimatch.set.map((expressions, index) => {
-    const nextExpressions = minimatch.set[(index + 1) % minimatch.set.length]
-
-    const parts = []
-    let lastCaptureIndex = -1
-    for (let expressionIndex = 0; expressionIndex < expressions.length; expressionIndex++) {
-      const expression = expressions[expressionIndex]
-
-      let capture = true
-      let partialPattern
-      if (typeof expression === 'string') {
-        partialPattern = escapeStringRegexp(expression)
-        // `capture` should only be true if brace expansion is used, and … some
-        // other condition?
-        // FIXME: What is the logic here? {a,b} will lead to capture, as will
-        // {a,a*}. Is this to do with multiple braces being expanded? E.g.
-        // {a,b}/foo/{c,d}?
-        capture = expression !== nextExpressions[expressionIndex]
-      } else if (expression === GLOBSTAR) {
-        partialPattern = twoStar
-      } else {
-        partialPattern = expression.source.slice(1, -1)
-      }
-
-      if (capture) {
-        if (lastCaptureIndex < 0) {
-          partialPattern = '(' + partialPattern
-        }
-        lastCaptureIndex = expressionIndex
-      }
-      parts.push(partialPattern)
+// flattenSet flattens multiple expressions from minimatch
+//
+// given 'foo/**/{bar, bat}/*.txt', set would be
+//   [
+//     [ 'foo', GLOBSTAR, 'bar', /[^\/]+\.txt/ ],
+//     [ 'foo', GLOBSTAR, 'bat', /[^\/]+\.txt/ ]
+//   ]
+//
+// flatten it to
+//   [ 'foo', twoStar, [ 'bar', 'bat' ], '[^/]+\.txt' ]
+//
+function flattenSet (set) {
+  return set[0].map((firstExpression, index) => {
+    if (firstExpression === GLOBSTAR) {
+      return [twoStar]
     }
-    parts[lastCaptureIndex] += ')'
-
-    const last = expressions.length - 1
-    // FIXME: Why check for strings? What is the significance of the expressions[last] !== nextExpressions[last]?
-    // Why not use path.extname()?
-    const extname = typeof expressions[last] !== 'string' || expressions[last] !== nextExpressions[last]
-      // grab extension from filename
-      ? minimatch.globParts[index][last].match(/(?:\.[A-Za-z0-9]+)*$/)[0]
-      : null
-
-    return {
-      // FIXME: Why even return extname? Can't it be excluded from the regexp match?
-      regexp: new RegExp('^' + parts.join('/') + '$', 'i'),
-      extname
+    let subExpressions = set.map(expressions => expressions[index])
+    if (typeof firstExpression === 'string') {
+      subExpressions = uniq(subExpressions.map(
+        subexp => escapeStringRegexp(subexp)
+      ))
+      if (subExpressions.length === 1) {
+        return subExpressions[0]
+      }
+    } else {
+      subExpressions = uniq(subExpressions.map(
+        subexp => subexp.source.slice(1, -1)
+      ))
     }
+    return subExpressions
   })
 }
 
-function generateMembers (globObj, cwd) {
-  const expressions = makeSubpathExpressions(globObj.minimatch)
-  return globObj.found.map(file => {
-    let subpath
-    for (const expression of expressions) {
-      const match = file.match(expression.regexp)
-      if (match) {
-        if (expression.extname) {
-          subpath = match[1].slice(0, -expression.extname.length)
-        } else {
-          subpath = match[1]
-        }
-        break
-      }
+// joinExpression joins subexpressions to simplest form
+//
+//   ['one'] to 'one'
+//   ['one', 'two'] to '(?:one|two)'
+//
+function joinExpression (expression) {
+  if (expression.length > 1) {
+    return '(?:' + expression.join('|') + ')'
+  }
+  return expression[0]
+}
+
+// splitExtensions takes a RegExp string and splits off extension
+//
+// given [ '[^/]+\.txt', '[^/]+\.csv' ]
+// becomes [ [ '[^/]+', '[^/]+' ], [ '\.txt', '\.csv' ] ]
+//
+function splitExtensions (expressions) {
+  const filenames = []
+  const extensions = []
+  for (const expression of expressions) {
+    const extension = expression.match(/(?:\\\.[A-Za-z0-9]+)*$/)[0]
+    if (extension) {
+      filenames.push(expression.slice(0, -extension.length))
+      extensions.push(extension)
+    } else {
+      filenames.push(expression)
     }
+  }
+  return [filenames, extensions]
+}
+
+function makeSubpathExpression (set) {
+  const expressions = flattenSet(set)
+  const captureStart = expressions.findIndex(Array.isArray)
+  const captureStop = findLastIndex(expressions, Array.isArray)
+
+  let extensionExpression = []
+  if (captureStop === expressions.length - 1) {
+    const split = splitExtensions(expressions[captureStop])
+    expressions[captureStop] = uniq(split[0])
+    extensionExpression = uniq(split[1])
+  }
+
+  const joinedExpressions = expressions.map(expression =>
+    Array.isArray(expression) ? joinExpression(expression) : expression
+  )
+
+  joinedExpressions[captureStart] = '(' + joinedExpressions[captureStart]
+  joinedExpressions[captureStop] += ')'
+
+  let finalExpression = joinedExpressions.join('/')
+
+  if (extensionExpression.length > 0) {
+    finalExpression += joinExpression(extensionExpression)
+  }
+
+  return '^' + finalExpression + '$'
+}
+
+function generateMembers (globObj, cwd) {
+  const expression = makeSubpathExpression(globObj.minimatch.set)
+  const regexp = new RegExp(expression, 'i')
+  return globObj.found.map(file => {
+    const match = file.match(regexp)
+    const subpath = match[1]
     return {
       file,
       relative: './' + path.relative(cwd, path.resolve(cwd, file)),
