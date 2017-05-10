@@ -207,11 +207,13 @@ Object.freeze(members);`)
 
 test('test braced paths', t => {
   t.is(
-    transform("import * as members from 'glob:./fixtures/use-dir-name/{one,two}/foo.txt'"),
+    transform("import * as members from 'glob:./fixtures/use-dir-name/{one,two,thr/ee}/foo.txt'"),
     `import _members_one from './fixtures/use-dir-name/one/foo.txt';
+import _members_thr$ee from './fixtures/use-dir-name/thr/ee/foo.txt';
 import _members_two from './fixtures/use-dir-name/two/foo.txt';
 const members = {
   one: _members_one,
+  thr$ee: _members_thr$ee,
   two: _members_two
 };
 Object.freeze(members);`)

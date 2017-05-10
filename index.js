@@ -5,100 +5,160 @@ const escapeStringRegexp = require('escape-string-regexp')
 const GLOBSTAR = require('minimatch').GLOBSTAR
 const glob = require('glob')
 const identifierfy = require('identifierfy')
-const uniq = require('lodash.uniq')
 const findLastIndex = require('lodash.findlastindex')
 
 const twoStar = '(?:(?!(?:/|^)\\.).)*?' // match '**'
+const OPTIONAL = Symbol('Optional part')
 
-// flattenSet flattens multiple expressions from minimatch
+// Recombines a set of minimatch patterns.
 //
-// given 'foo/**/{bar, bat}/*.txt', set would be
-//   [
-//     [ 'foo', GLOBSTAR, 'bar', /^[^\/]+\.txt$/ ],
-//     [ 'foo', GLOBSTAR, 'bat', /^[^\/]+\.txt$/ ]
-//   ]
+// Given `foo/**/{bar, bat}/*.txt`, minimatch would yield:
 //
-// flatten it to
-//   [ 'foo', [ twoStar ], [ 'bar', 'bat' ], [ '[^/]+\.txt' ] ]
+//     [
+//       ['foo', GLOBSTAR, 'bar', /^[^\/]+\.txt$/],
+//       ['foo', GLOBSTAR, 'bat', /^[^\/]+\.txt$/]
+//     ]
 //
-function flattenSet (set) {
-  return set[0].map((firstExpression, index) => {
-    if (firstExpression === GLOBSTAR) {
-      return [twoStar]
-    }
-    let subExpressions = set.map(expressions => expressions[index])
-    if (typeof firstExpression === 'string') {
-      subExpressions = uniq(subExpressions.map(
-        subexp => escapeStringRegexp(subexp)
-      ))
-      if (subExpressions.length === 1) {
-        return subExpressions[0]
+// Which is recombined to:
+//
+//     [
+//       { capture: false, patterns: ['foo'], optional: false },
+//       { capture: true, patterns: [twoStar], optional: false },
+//       { capture: true, patterns: ['bar', 'bat'], optional: false },
+//       { capture: true, patterns: ['[^/]+\.txt'], optional: false }
+//     ]
+//
+// Given `{a,b/c}d.txt`, minimatch would yield:
+//
+//     [
+//       ['a', 'd.txt'],
+//       ['b', 'c', 'd.txt']
+//     ]
+//
+// Which is recombined to:
+//
+//     [
+//       { capture: true, patterns: ['a', 'b'], optional: false },
+//       { capture: true, patterns: ['c'], optional: true },
+//       { capture: false, patterns: ['d.txt'], optional: false }
+//     ]
+//
+function recombinePatterns (set) {
+  const maxLength = set.reduce((length, patterns) => Math.max(length, patterns.length), 0)
+
+  const initial = Array.from({length: maxLength}, () => new Set())
+  const lastIndex = maxLength - 1
+  for (const patterns of set) {
+    for (let index = 0; index < maxLength; index++) {
+      if (index < patterns.length - 1) {
+        initial[index].add(patterns[index])
+      } else {
+        const pattern = patterns[index]
+        for (; index < lastIndex; index++) {
+          initial[index].add(OPTIONAL)
+        }
+        initial[lastIndex].add(pattern)
       }
-    } else {
-      subExpressions = uniq(subExpressions.map(
-        subexp => subexp.source.slice(1, -1)
-      ))
     }
-    return subExpressions
+  }
+
+  return initial.map(accumulated => {
+    if (accumulated.has(GLOBSTAR)) {
+      return {capture: true, optional: false, patterns: [twoStar]}
+    }
+
+    const raw = Array.from(accumulated)
+    const capture = accumulated.size > 1 || typeof raw[0] !== 'string'
+    const optional = accumulated.has(OPTIONAL)
+    const patterns = raw
+      .filter(pattern => pattern !== OPTIONAL)
+      .map(pattern => {
+        return typeof pattern === 'string'
+          ? escapeStringRegexp(pattern)
+          : pattern.source.slice(1, -1) // pattern is a regular expression
+      })
+
+    return {capture, optional, patterns}
   })
 }
 
-// joinExpression joins subexpressions to simplest form
+// Takes RegExp strings and extract file extensions.
 //
-//   ['one'] to 'one'
-//   ['one', 'two'] to '(?:one|two)'
+// Given:
 //
-function joinExpression (expression) {
-  if (expression.length > 1) {
-    return '(?:' + expression.join('|') + ')'
+//     ['[^/]+\.txt', '[^/]+\.csv']
+//
+// Returns:
+//
+//    {
+//      patterns: ['[^/]+'],
+//      extensions: ['\.txt', '\.csv']
+//    }
+//
+function extractExtensions (fullPatterns) {
+  const patterns = new Set()
+  const extensions = new Set()
+  for (const pattern of fullPatterns) {
+    const match = pattern.match(/^(.*?)((?:\\\.[A-Za-z0-9]+)*)$/)
+    patterns.add(match[1])
+    if (match[2]) {
+      extensions.add(match[2])
+    }
   }
-  return expression[0]
+
+  return {
+    patterns: Array.from(patterns),
+    extensions: Array.from(extensions)
+  }
 }
 
-// splitExtension takes a RegExp string and splits off extension
-//
-// given [ '[^/]+\.txt', '[^/]+\.csv' ]
-// becomes [ [ '[^/]+', '[^/]+' ], [ '\.txt', '\.csv' ] ]
-//
-function splitExtension (expressions) {
-  const filenames = []
-  const extensions = []
-  for (const expression of expressions) {
-    const match = expression.match(/^(.*?)((?:\\\.[A-Za-z0-9]+)*)$/)
-    if (match[2]) {
-      extensions.push(match[2])
-    }
-    filenames.push(match[1])
-  }
-  return [filenames, extensions]
+function mustCapture (part) {
+  return part.capture === true
 }
 
 function makeSubpathExpression (set) {
-  const expressions = flattenSet(set)
-  const captureStart = expressions.findIndex(Array.isArray)
-  const captureStop = findLastIndex(expressions, Array.isArray)
+  const parts = recombinePatterns(set)
+  const captureStart = parts.findIndex(mustCapture)
+  const captureEnd = findLastIndex(parts, mustCapture)
+  const captureThroughEnd = captureEnd === parts.length - 1
 
-  let extensionExpression = []
-  if (captureStop === expressions.length - 1) {
-    const split = splitExtension(expressions[captureStop])
-    expressions[captureStop] = uniq(split[0])
-    extensionExpression = uniq(split[1])
-  }
+  return '^' + parts.reduce((acc, part, index) => {
+    let patterns = part.patterns
+    let extensions
+    if (index === captureEnd && captureThroughEnd) {
+      const extracted = extractExtensions(part.patterns)
+      patterns = extracted.patterns
+      if (extracted.extensions.length > 0) {
+        extensions = extracted.extensions
+      }
+    }
 
-  const joinedExpressions = expressions.map(expression =>
-    Array.isArray(expression) ? joinExpression(expression) : expression
-  )
+    let expression = `(?:${patterns.join('|')})`
+    if (index === captureStart) {
+      expression = '(' + expression
+    }
+    // Note that the slash is excluded from the start of the capture group.
+    if (index > 0) {
+      expression = '/' + expression
+    }
 
-  joinedExpressions[captureStart] = '(' + joinedExpressions[captureStart]
-  joinedExpressions[captureStop] += ')'
+    // Make the expression optional before possibly ending the capture group,
+    // otherwise the capture group may become optional.
+    if (part.optional) {
+      expression = `(?:${expression})?`
+    }
 
-  let finalExpression = joinedExpressions.join('/')
+    if (index === captureEnd) {
+      expression += ')'
 
-  if (extensionExpression.length > 0) {
-    finalExpression += joinExpression(extensionExpression)
-  }
+      // Add non-captured extensions after the capture group has ended.
+      if (captureThroughEnd && extensions) {
+        expression += `(?:${extensions.join('|')})`
+      }
+    }
 
-  return '^' + finalExpression + '$'
+    return acc + expression
+  }, '') + '$'
 }
 
 function generateMembers (globObj, cwd) {
