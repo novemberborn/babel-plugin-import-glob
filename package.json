@@ -37,7 +37,7 @@
   "dependencies": {
     "glob": "^7.0.0",
     "identifierfy": "^1.1.0",
-    "minimatch-capture": "^1.0.1"
+    "minimatch-capture": "^1.1.0"
   },
   "nyc": {
     "reporter": [

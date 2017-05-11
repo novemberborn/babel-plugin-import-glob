@@ -68,6 +68,8 @@ function makeNamespaceObject (t, localName, members) {
   )
 }
 
+const globPrefix = 'glob:'
+
 module.exports = babelCore => {
   const t = babelCore.types
   return {
@@ -80,14 +82,14 @@ module.exports = babelCore => {
         let pattern = source.value
 
         if (!glob.hasMagic(pattern)) {
-          if (pattern.startsWith('glob:')) {
+          if (pattern.startsWith(globPrefix)) {
             throw error(`Missing glob pattern '${pattern}'`)
           }
           return
         }
 
-        if (pattern.startsWith('glob:')) {
-          pattern = pattern.replace(/^glob:/, '')
+        if (pattern.startsWith(globPrefix)) {
+          pattern = pattern.substr(globPrefix.length)
         }
 
         if (hasImportDefaultSpecifier(specifiers)) {
