@@ -203,7 +203,7 @@ const members = {
 Object.freeze(members);`)
 })
 
-test('extension should still be ommited within brace', t => {
+test('extension should still be ommitted within brace', t => {
   t.is(
     transform("import * as members from 'glob:./fixtures/ext-from-pattern/*.{txt,csv}'"),
     `import _members_oneFoo from './fixtures/ext-from-pattern/one.foo.txt';
