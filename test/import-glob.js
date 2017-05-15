@@ -216,3 +216,27 @@ const members = {
 };
 Object.freeze(members);`)
 })
+
+test('includes directory names between * parts in the member names', t => {
+  t.is(
+    transform("import * as members from './fixtures/*/qux/*.txt'"),
+    `import _members_subdirectories$qux$quux from './fixtures/subdirectories/qux/quux.txt';
+const members = {
+  subdirectories$qux$quux: _members_subdirectories$qux$quux
+};
+Object.freeze(members);`
+  )
+})
+
+test('excludes non-captured brace expansion parts in the member names', t => {
+  t.is(
+    transform("import * as members from './fixtures/subdirectories/{foo-bar,qux}/*.txt'"),
+    `import _members_baz from './fixtures/subdirectories/foo-bar/baz.txt';
+import _members_quux from './fixtures/subdirectories/qux/quux.txt';
+const members = {
+  baz: _members_baz,
+  quux: _members_quux
+};
+Object.freeze(members);`
+  )
+})
