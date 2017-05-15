@@ -98,27 +98,21 @@ test('does not transform standard import', t => {
     `import foo from 'fixtures/multiple/foo.txt';`)
 })
 
-test('constructs the member by identifierfying the file name, without the common extname', t => {
-  t.is(
-    transform("import { fooBar } from 'glob:./fixtures/foo-bar/*.txt'"),
-    "import fooBar from './fixtures/foo-bar/foo-bar.txt';")
-})
-
-test('constructs the member by identifierfying the file name, including remaining extnames', t => {
+test('constructs the member by identifierfying the captured file name parts', t => {
   t.is(
     transform("import { fooBar, bazQux } from 'glob:./fixtures/extnames/*.txt'"),
     `import fooBar from './fixtures/extnames/foo.bar.txt';
 import bazQux from './fixtures/extnames/baz.qux.txt';`)
 })
 
-test('constructs the member by identifierfying directory components, separating them by dollar signs', t => {
+test('constructs the member by identifierfying captured directory components, separating them by dollar signs', t => {
   t.is(
     transform("import { fooBar$baz, qux$quux } from 'glob:./fixtures/subdirectories/**/*.txt'"),
     `import fooBar$baz from './fixtures/subdirectories/foo-bar/baz.txt';
 import qux$quux from './fixtures/subdirectories/qux/quux.txt';`)
 })
 
-test('constructs the member by identifierfying directory components, without unnecessary underscores', t => {
+test('constructs the member by identifierfying captured directory components, without unnecessary underscores', t => {
   t.is(
     // eslint-disable-next-line max-len
     transform("import { noUnnecessaryUnderscores$new, noUnnecessaryUnderscores$42 } from 'glob:./fixtures/subdirectories/**/*.txt'"),
@@ -167,18 +161,6 @@ test('supports importing modules for their side-effects', t => {
     transform("import 'glob:./fixtures/multiple/*.txt'"),
     `import './fixtures/multiple/bar.txt';
 import './fixtures/multiple/foo.txt';`)
-})
-
-test('use dirname as identifier', t => {
-  t.is(
-    transform("import * as members from 'glob:./fixtures/use-dir-name/*/foo.txt'"),
-    `import _members_one from './fixtures/use-dir-name/one/foo.txt';
-import _members_two from './fixtures/use-dir-name/two/foo.txt';
-const members = {
-  one: _members_one,
-  two: _members_two
-};
-Object.freeze(members);`)
 })
 
 test('sub-extension removed because it is in the pattern', t => {
