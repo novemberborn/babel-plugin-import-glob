@@ -1,8 +1,7 @@
 # babel-plugin-import-glob
 
-Babel plugin to enable importing modules using a [glob
-pattern](https://www.npmjs.com/package/glob#glob-primer). Tested with Node.js
-4 and above.
+Babel plugin to enable importing modules using a [glob pattern][patterns].
+Tested with Node.js 4 and above.
 
 ## Installation
 
@@ -125,3 +124,21 @@ Match|Result|Reason
 `./templates/404.handlebars.js`|`_404`|Identifiers can't start with digits so it's prefixed with an underscore
 `./templates/error-pages/404.handlebars.js`|`errorPages$404`|Now that `404` is combined with `errorPages$` it no longer needs to be prefixed
 `./templates/🙊.handlebars.js`|`SyntaxError`|No identifier can be generated for `🙊`
+
+Brace expansions are not considered to be a dynamic portion of the pattern.
+Given the pattern `./templates/{blog,error-pages}/*.handlebars.js`:
+
+Match|Result
+:---|:---
+`./templates/blog/footer.handlebars.js`|`footer`
+`./templates/error-pages/404.handlebars.js`|`_404`
+
+Use [parentheses patterns][patterns] instead, e.g.
+`./templates/{@(blog),@(error-pages)}/*.handlebars.js`:
+
+Match|Result
+:---|:---
+`./templates/blog/footer.handlebars.js`|`blog$footer`
+`./templates/error-pages/404.handlebars.js`|`errorPages$404`
+
+[patterns]: https://www.npmjs.com/package/glob#glob-primer
