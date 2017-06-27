@@ -28,7 +28,7 @@
     "babel-plugin"
   ],
   "devDependencies": {
-    "@novemberborn/as-i-preach": "^9.0.0",
+    "@novemberborn/as-i-preach": "^10.1.0",
     "ava": "^0.19.1",
     "babel-core": "^6.4.0",
     "codecov": "^2.1.0",
