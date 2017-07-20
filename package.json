@@ -29,7 +29,7 @@
   ],
   "devDependencies": {
     "@novemberborn/as-i-preach": "^10.1.0",
-    "ava": "^0.19.1",
+    "ava": "^0.21.0",
     "babel-core": "^6.4.0",
     "codecov": "^2.1.0",
     "nyc": "^11.0.1"
